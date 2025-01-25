@@ -14,8 +14,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/gorilla/mux"
+	"github.com/jakthom/s3c/src/middleware"
 	zlog "github.com/rs/zerolog/log"
 )
 
@@ -141,17 +141,6 @@ func NewS2(maxRequestBodyLength uint32, readBodyTimeout time.Duration) *S2 {
 		maxRequestBodyLength: maxRequestBodyLength,
 		readBodyTimeout:      readBodyTimeout,
 	}
-}
-
-// requestIDMiddleware creates a middleware handler that adds a request ID to
-// every request.
-func (h *S2) requestIDMiddleware(next http.Handler) http.Handler { // TODO -> implement more flexible set of middleware
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		vars := mux.Vars(r)
-		id := uuid.New()
-		vars["requestID"] = id.String()
-		next.ServeHTTP(w, r)
-	})
 }
 
 // authV4 validates a request using AWS' auth V4
@@ -363,22 +352,6 @@ func (h *S2) authMiddleware(next http.Handler) http.Handler { // TODO -> add mor
 	})
 }
 
-// etagMiddleware iterates over a requests headers and quotes unquoted Entity Tags headers.
-// ref: https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/ETag
-func (h *S2) etagMiddleware(next http.Handler) http.Handler { // TODO -> add more flexible middleware
-	etagHeaders := [3]string{"ETag", "If-Match", "If-None-Match"}
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		zlog.Debug().Interface("headers", r.Header).Msg("Headers")
-		for _, key := range etagHeaders {
-			value := r.Header.Get(key)
-			if value != "" {
-				r.Header.Set(key, addETagQuotes(value))
-			}
-		}
-		next.ServeHTTP(w, r)
-	})
-}
-
 // bodyReadingMiddleware creates a middleware for reading request bodies
 func (h *S2) bodyReadingMiddleware(next http.Handler) http.Handler { // TODO -> break out middleware
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -492,11 +465,11 @@ func (h *S2) Router() *mux.Router {
 	}
 
 	router := mux.NewRouter()
-	router.Use(h.requestIDMiddleware)
+	router.Use(middleware.RequestIdMiddleware)
 	if h.Auth != nil {
 		router.Use(h.authMiddleware)
 	}
-	router.Use(h.etagMiddleware)
+	router.Use(middleware.EtagMiddleware)
 	router.Use(h.bodyReadingMiddleware)
 
 	router.Path(`/`).Methods("GET", "HEAD").HandlerFunc(serviceHandler.get) // TODO -> implement HEAD

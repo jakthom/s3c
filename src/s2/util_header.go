@@ -43,7 +43,7 @@ func intFormValue(r *http.Request, name string, min int, max int, def int) (int,
 	return i, nil
 }
 
-//stripETagQuotes removes leading and trailing quotes in a string (if they
+// stripETagQuotes removes leading and trailing quotes in a string (if they
 // exist.) This is used for ETags.
 func stripETagQuotes(s string) string {
 	if strings.HasPrefix(s, "\"") && strings.HasSuffix(s, "\"") {
@@ -163,7 +163,8 @@ func formatAWSTimestamp(t time.Time) string {
 	return t.Format(awsTimeFormat)
 }
 
-//  parseTimestamp parses a timestamp value that is formatted in any of the
+//	parseTimestamp parses a timestamp value that is formatted in any of the
+//
 // following:
 // 1) as AWS' custom format (e.g. 20060102T150405Z)
 // 2) as RFC1123
