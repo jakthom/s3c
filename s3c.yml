@@ -1,0 +1,10 @@
+
+port: 8081
+
+auth:
+  keyId: blablablakey
+  secret: blablablasecret
+
+origin:
+  type: s3
+  bucket: mybucket
