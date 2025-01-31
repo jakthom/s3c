@@ -12,7 +12,7 @@ import (
 func EtagMiddleware(next http.Handler) http.Handler {
 	etagHeaders := [3]string{"ETag", "If-Match", "If-None-Match"}
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		log.Debug().Interface("headers", r.Header).Msg("Headers")
+		log.Debug().Interface("headers", r.Header).Msg("Headers before ETagMiddleware")
 		for _, key := range etagHeaders {
 			value := r.Header.Get(key)
 			if value != "" {
