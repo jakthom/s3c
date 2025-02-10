@@ -1,4 +1,4 @@
-package service
+package s3service
 
 import (
 	"encoding/xml"

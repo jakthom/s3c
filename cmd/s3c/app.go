@@ -13,6 +13,9 @@ import (
 	"github.com/jakthom/s3c/pkg/config"
 	"github.com/jakthom/s3c/pkg/handler"
 	"github.com/jakthom/s3c/pkg/middleware"
+	fileorigin "github.com/jakthom/s3c/pkg/origin/file"
+	s3notimplemented "github.com/jakthom/s3c/pkg/s3/notimplemented"
+	s3service "github.com/jakthom/s3c/pkg/s3/service"
 	"github.com/jakthom/s3c/pkg/util"
 	"github.com/rs/zerolog/log"
 )
@@ -20,7 +23,8 @@ import (
 var VERSION string
 
 type S3c struct {
-	config *config.Config
+	config         *config.Config
+	serviceHandler *s3service.ServiceHandler
 }
 
 func (s *S3c) configure() {
@@ -37,6 +41,10 @@ func (s *S3c) configure() {
 func (s *S3c) Initialize() {
 	log.Info().Msg("Initializing s3c")
 	s.configure()
+	s.serviceHandler = &s3service.ServiceHandler{
+		Controller: &fileorigin.FileOriginServiceController{},
+	}
+
 }
 
 func (s *S3c) Run() {
@@ -44,8 +52,12 @@ func (s *S3c) Run() {
 	// Set up http server and register s2 handlers
 
 	router := mux.NewRouter()
-	router.Handle("/s3c/health", middleware.RequestIdMiddleware(middleware.RequestLoggerMiddleware(http.HandlerFunc(handler.HealthcheckHandler))))
-	router.Handle("/{path}", middleware.RequestIdMiddleware(middleware.RequestLoggerMiddleware(http.HandlerFunc(handler.HealthcheckHandler))))
+	s3notimplemented.AddNotImplementedRoutes(router)
+	router.Use(middleware.RequestIdMiddleware)
+	router.Use(middleware.RequestLoggerMiddleware)
+	router.Handle("/s3c/health", http.HandlerFunc(handler.HealthcheckHandler))
+	router.Handle("/", http.HandlerFunc(s.serviceHandler.Get)) // Service
+	router.Handle("/{path}", http.HandlerFunc(handler.HealthcheckHandler))
 
 	srv := &http.Server{
 		Addr:    ":" + s.config.Port,
