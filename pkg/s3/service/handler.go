@@ -1,4 +1,4 @@
-package service
+package s3service
 
 import (
 	"net/http"
@@ -7,12 +7,12 @@ import (
 	s3util "github.com/jakthom/s3c/pkg/s3/util"
 )
 
-type serviceHandler struct {
-	controller ServiceController
+type ServiceHandler struct {
+	Controller ServiceController
 }
 
-func (h *serviceHandler) get(w http.ResponseWriter, r *http.Request) {
-	result, err := h.controller.ListBuckets(r)
+func (h *ServiceHandler) Get(w http.ResponseWriter, r *http.Request) {
+	result, err := h.Controller.ListBuckets(r)
 	if err != nil {
 		s3util.WriteError(w, r, err)
 		return

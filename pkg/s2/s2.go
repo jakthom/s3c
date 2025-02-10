@@ -22,9 +22,6 @@ import (
 var (
 	// bucketNameValidator is a regex for validating bucket names
 	bucketNameValidator = regexp.MustCompile(`^/[a-zA-Z0-9\-_\.]{1,255}/`)
-	// authV2HeaderValidator is a regex for validating the authorization
-	// header when using AWs' auth V2
-	authV2HeaderValidator = regexp.MustCompile(`^AWS ([^:]*):(.*)$`)
 	// authV4HeaderValidator is a regex for validating the authorization
 	// header when using AWs' auth V4
 	authV4HeaderValidator = regexp.MustCompile(`^AWS4-HMAC-SHA256 Credential=([^/]*)/([^/]*)/([^/]*)/s3/aws4_request, ?SignedHeaders=([^,]+), ?Signature=(.+)$`)
@@ -50,36 +47,8 @@ var (
 	}
 )
 
-// NotImplementedEndpoint creates an endpoint that returns
-// `NotImplementedError` responses. This can be used in places expecting a
-// `HandlerFunc`, e.g. mux middleware.
-func NotImplementedEndpoint() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		WriteError(w, r, NotImplementedError(r))
-	}
-}
-
 // attachBucketRoutes adds bucket-related routes to a router
 func attachBucketRoutes(router *mux.Router, handler *bucketHandler, multipartHandler *multipartHandler, objectHandler *objectHandler) {
-	router.Methods("GET", "PUT").Queries("accelerate", "").HandlerFunc(NotImplementedEndpoint())
-	router.Methods("GET", "PUT").Queries("acl", "").HandlerFunc(NotImplementedEndpoint())
-	router.Methods("GET", "PUT", "DELETE").Queries("analytics", "").HandlerFunc(NotImplementedEndpoint())
-	router.Methods("GET", "PUT", "DELETE").Queries("cors", "").HandlerFunc(NotImplementedEndpoint())
-	router.Methods("GET", "PUT", "DELETE").Queries("encryption", "").HandlerFunc(NotImplementedEndpoint())
-	router.Methods("GET", "PUT", "DELETE").Queries("inventory", "").HandlerFunc(NotImplementedEndpoint())
-	router.Methods("GET", "PUT", "DELETE").Queries("lifecycle", "").HandlerFunc(NotImplementedEndpoint())
-	router.Methods("GET", "PUT").Queries("logging", "").HandlerFunc(NotImplementedEndpoint())
-	router.Methods("GET", "PUT", "DELETE").Queries("metrics", "").HandlerFunc(NotImplementedEndpoint())
-	router.Methods("GET", "PUT").Queries("notification", "").HandlerFunc(NotImplementedEndpoint())
-	router.Methods("GET", "PUT").Queries("object-lock", "").HandlerFunc(NotImplementedEndpoint())
-	router.Methods("GET", "PUT", "DELETE").Queries("policy", "").HandlerFunc(NotImplementedEndpoint())
-	router.Methods("GET").Queries("policyStatus", "").HandlerFunc(NotImplementedEndpoint())
-	router.Methods("GET", "PUT", "DELETE").Queries("publicAccessBlock", "").HandlerFunc(NotImplementedEndpoint())
-	router.Methods("PUT", "DELETE").Queries("replication", "").HandlerFunc(NotImplementedEndpoint())
-	router.Methods("GET", "PUT").Queries("requestPayment", "").HandlerFunc(NotImplementedEndpoint())
-	router.Methods("GET", "PUT", "DELETE").Queries("tagging", "").HandlerFunc(NotImplementedEndpoint())
-	router.Methods("GET", "PUT", "DELETE").Queries("website", "").HandlerFunc(NotImplementedEndpoint())
-
 	router.Methods("GET").Queries("versioning", "").HandlerFunc(handler.versioning)
 	router.Methods("PUT").Queries("versioning", "").HandlerFunc(handler.setVersioning)
 	router.Methods("GET").Queries("versions", "").HandlerFunc(handler.listVersions)
@@ -90,19 +59,10 @@ func attachBucketRoutes(router *mux.Router, handler *bucketHandler, multipartHan
 	router.Methods("POST").Queries("delete", "").HandlerFunc(objectHandler.post)
 	router.Methods("DELETE").HandlerFunc(handler.del)
 
-	// catch-all for POST calls that aren't using the delete subresource
-	router.Methods("POST").HandlerFunc(NotImplementedEndpoint())
 }
 
 // attachBucketRoutes adds object-related routes to a router
 func attachObjectRoutes(router *mux.Router, handler *objectHandler, multipartHandler *multipartHandler) {
-	router.Methods("GET", "PUT").Queries("acl", "").HandlerFunc(NotImplementedEndpoint())
-	router.Methods("GET", "PUT").Queries("legal-hold", "").HandlerFunc(NotImplementedEndpoint())
-	router.Methods("GET", "PUT").Queries("retention", "").HandlerFunc(NotImplementedEndpoint())
-	router.Methods("GET", "PUT", "DELETE").Queries("tagging", "").HandlerFunc(NotImplementedEndpoint())
-	router.Methods("GET").Queries("torrent", "").HandlerFunc(NotImplementedEndpoint())
-	router.Methods("POST").Queries("restore", "").HandlerFunc(NotImplementedEndpoint())
-	router.Methods("POST").Queries("select", "").HandlerFunc(NotImplementedEndpoint())
 
 	router.Methods("GET").Queries("uploadId", "").HandlerFunc(multipartHandler.listChunks)
 	router.Methods("POST").Queries("uploads", "").HandlerFunc(multipartHandler.init)
@@ -233,95 +193,9 @@ func (h *S2) authV4(w http.ResponseWriter, r *http.Request, auth string) error {
 	return nil
 }
 
-// authV2 validates a request using AWS' auth V2
-func (h *S2) authV2(w http.ResponseWriter, r *http.Request, auth string) error { // TODO -> break this functionality out
-	// parse auth-related headers
-	match := authV2HeaderValidator.FindStringSubmatch(auth)
-	if len(match) == 0 {
-		return InvalidArgumentError(r)
-	}
-
-	accessKey := match[1]
-	expectedSignature := match[2]
-
-	// get the expected secret key
-	secretKey, err := h.Auth.SecretKey(r, accessKey, nil)
-	if err != nil {
-		return InternalError(r, err)
-	}
-	if secretKey == nil {
-		return InvalidAccessKeyIDError(r)
-	}
-
-	timestamp, err := parseAWSTimestamp(r)
-	if err != nil {
-		return err
-	}
-
-	amzHeaderKeys := []string{}
-	for key := range r.Header {
-		if strings.HasPrefix(key, "x-amz-") {
-			amzHeaderKeys = append(amzHeaderKeys, key)
-		}
-	}
-	sort.Strings(amzHeaderKeys)
-
-	stringToSignParts := []string{
-		r.Method,
-		r.Header.Get("content-md5"),
-		r.Header.Get("content-type"),
-		timestamp.Format(time.RFC1123),
-	}
-
-	for _, key := range amzHeaderKeys {
-		// NOTE: this doesn't properly handle multiple header values, or
-		// header values with repeated whitespace characters
-		value := fmt.Sprintf("%s:%s", key, strings.TrimSpace(r.Header.Get(key)))
-		stringToSignParts = append(stringToSignParts, value)
-	}
-
-	var canonicalizedResource strings.Builder
-	canonicalizedResource.WriteString(r.URL.Path)
-	query := r.URL.Query()
-	appendedQuery := false
-	for _, k := range subresourceQueryParams {
-		_, ok := query[k]
-		if ok {
-			if appendedQuery {
-				canonicalizedResource.WriteString("&")
-			} else {
-				canonicalizedResource.WriteString("?")
-				appendedQuery = true
-			}
-
-			canonicalizedResource.WriteString(k)
-
-			value := query.Get(k)
-			if value != "" {
-				// NOTE: this doesn't properly handle multiple query params
-				canonicalizedResource.WriteString("=")
-				canonicalizedResource.WriteString(value)
-			}
-		}
-	}
-	stringToSignParts = append(stringToSignParts, canonicalizedResource.String())
-
-	stringToSign := strings.Join(stringToSignParts, "\n")
-	signature := base64.StdEncoding.EncodeToString(hmacSHA1([]byte(*secretKey), stringToSign))
-
-	if expectedSignature != signature {
-		return AccessDeniedError(r)
-	}
-
-	vars := mux.Vars(r)
-	vars["authMethod"] = "v2"
-	vars["authAccessKey"] = accessKey
-	return nil
-}
-
 // authMiddleware creates a middleware handler for dealing with AWS auth
 func (h *S2) authMiddleware(next http.Handler) http.Handler { // TODO -> add more flexible middleware
-	// Verifies auth using AWS' v2 and v4 auth mechanisms. Much of the code is
+	// Verifies auth using AWS v4 auth mechanisms. Much of the code is
 	// built off of smartystreets/go-aws-auth, which does signing from the
 	// client-side:
 	// https://github.com/smartystreets/go-aws-auth
@@ -332,8 +206,6 @@ func (h *S2) authMiddleware(next http.Handler) http.Handler { // TODO -> add mor
 		var err error
 		if strings.HasPrefix(auth, "AWS4-HMAC-SHA256 ") {
 			err = h.authV4(w, r, auth)
-		} else if strings.HasPrefix(auth, "AWS ") {
-			err = h.authV2(w, r, auth)
 		} else {
 			passed, err = h.Auth.CustomAuth(r)
 			vars := mux.Vars(r)
