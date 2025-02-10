@@ -1,4 +1,4 @@
-package s2
+package s3util
 
 import (
 	"crypto/hmac"
@@ -10,6 +10,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	s3error "github.com/jakthom/s3c/pkg/s3/error"
 )
 
 const (
@@ -25,11 +27,11 @@ var (
 	unixEpoch = time.Unix(0, 0)
 )
 
-// intFormValue extracts an int value from a request's form values, ensuring
+// IntFormValue extracts an int value from a request's form values, ensuring
 // it's within specified bounds. If the value is unspecified, `def` is
 // returned. If the value is not an int, or not with the specified bounds, an
 // error is returned.
-func intFormValue(r *http.Request, name string, min int, max int, def int) (int, error) {
+func IntFormValue(r *http.Request, name string, min int, max int, def int) (int, error) {
 	s := r.FormValue(name)
 	if s == "" {
 		return def, nil
@@ -37,7 +39,7 @@ func intFormValue(r *http.Request, name string, min int, max int, def int) (int,
 
 	i, err := strconv.Atoi(s)
 	if err != nil || i < min || i > max {
-		return 0, InvalidArgumentError(r)
+		return 0, s3error.InvalidArgumentError(r)
 	}
 
 	return i, nil
@@ -45,7 +47,7 @@ func intFormValue(r *http.Request, name string, min int, max int, def int) (int,
 
 // stripETagQuotes removes leading and trailing quotes in a string (if they
 // exist.) This is used for ETags.
-func stripETagQuotes(s string) string {
+func StripETagQuotes(s string) string {
 	if strings.HasPrefix(s, "\"") && strings.HasSuffix(s, "\"") {
 		return strings.Trim(s, "\"")
 	}
@@ -54,7 +56,7 @@ func stripETagQuotes(s string) string {
 
 // addETagQuotes ensures that a given string has leading and trailing quotes.
 // This is used for ETags.
-func addETagQuotes(s string) string {
+func AddETagQuotes(s string) string {
 	if !strings.HasPrefix(s, "\"") {
 		return fmt.Sprintf("\"%s\"", s)
 	}
@@ -62,16 +64,16 @@ func addETagQuotes(s string) string {
 }
 
 // normURI normalizes a URI using AWS' technique
-func normURI(uri string) string {
+func NormURI(uri string) string {
 	parts := strings.Split(uri, "/")
 	for i := range parts {
-		parts[i] = encodePathFrag(parts[i])
+		parts[i] = encodePathFragment(parts[i])
 	}
 	return strings.Join(parts, "/")
 }
 
-// encodePathFrag encodes a fragment of a path in a URL using AWS' technique
-func encodePathFrag(s string) string {
+// encodePathFragment encodes a fragment of a path in a URL using AWS' technique
+func encodePathFragment(s string) string {
 	hexCount := 0
 	for i := 0; i < len(s); i++ {
 		c := s[i]
@@ -112,7 +114,7 @@ func shouldEscape(c byte) bool {
 }
 
 // normQuery normalizes query string values using AWS' technique
-func normQuery(v url.Values) string {
+func NormQuery(v url.Values) string {
 	queryString := v.Encode()
 
 	// Go encodes a space as '+' but Amazon requires '%20'. Luckily any '+' in the
@@ -136,11 +138,11 @@ func hmacSHA256(key []byte, content string) []byte {
 	return mac.Sum(nil)
 }
 
-// requireContentLength checks to ensure that an HTTP request includes a
+// RequireContentLength checks to ensure that an HTTP request includes a
 // `Content-Length` header.
-func requireContentLength(r *http.Request) error {
+func RequireContentLength(r *http.Request) error {
 	if _, ok := singleHeader(r, "Content-Length"); !ok {
-		return MissingContentLengthError(r)
+		return s3error.MissingContentLengthError(r)
 	}
 	return nil
 }
@@ -159,7 +161,7 @@ func singleHeader(r *http.Request, name string) (string, bool) {
 	return values[0], true
 }
 
-func formatAWSTimestamp(t time.Time) string {
+func FormatAWSTimestamp(t time.Time) string {
 	return t.Format(awsTimeFormat)
 }
 
@@ -181,18 +183,18 @@ func parseAWSTimestamp(r *http.Request) (time.Time, error) {
 		if err != nil {
 			timestamp, err = time.Parse(awsTimeFormat, timestampStr)
 			if err != nil {
-				return time.Time{}, AccessDeniedError(r)
+				return time.Time{}, s3error.AccessDeniedError(r)
 			}
 		}
 	}
 
 	if !timestamp.After(unixEpoch) {
-		return time.Time{}, AccessDeniedError(r)
+		return time.Time{}, s3error.AccessDeniedError(r)
 	}
 
 	now := time.Now()
 	if !timestamp.After(now.Add(-skewTime)) || timestamp.After(now.Add(skewTime)) {
-		return time.Time{}, RequestTimeTooSkewedError(r)
+		return time.Time{}, s3error.RequestTimeTooSkewedError(r)
 	}
 
 	return timestamp, nil

@@ -1,4 +1,4 @@
-package s2
+package s3object
 
 import (
 	"encoding/xml"
@@ -9,76 +9,9 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
+	s3error "github.com/jakthom/s3c/pkg/s3/error"
+	s3util "github.com/jakthom/s3c/pkg/s3/util"
 )
-
-// GetObjectResult is a response from a GetObject call
-type GetObjectResult struct {
-	// ETag is a hex encoding of the hash of the object contents, with or
-	// without surrounding quotes.
-	ETag string
-	// Version is the version of the object, or an empty string if versioning
-	// is not enabled or supported.
-	Version string
-	// DeleteMarker specifies whether there's a delete marker in place of the
-	// object.
-	DeleteMarker bool
-	// ModTime specifies when the object was modified.
-	ModTime time.Time
-	// Content is the contents of the object.
-	Content io.ReadSeeker
-}
-
-// PutObjectResult is a response from a PutObject call
-type PutObjectResult struct {
-	// ETag is a hex encoding of the hash of the object contents, with or
-	// without surrounding quotes.
-	ETag string
-	// Version is the version of the object, or an empty string if versioning
-	// is not enabled or supported.
-	Version string
-}
-
-// DeleteObjectResult is a response from a DeleteObject call
-type DeleteObjectResult struct {
-	// Version is the version of the object, or an empty string if versioning
-	// is not enabled or supported.
-	Version string
-	// DeleteMarker specifies whether there's a delete marker in place of the
-	// object.
-	DeleteMarker bool
-}
-
-// ObjectController is an interface that specifies object-level functionality.
-type ObjectController interface {
-	// GetObject gets an object
-	GetObject(r *http.Request, bucket, key, version string) (*GetObjectResult, error)
-	// CopyObject copies an object
-	CopyObject(r *http.Request, srcBucket, srcKey string, getResult *GetObjectResult, destBucket, destKey string) (string, error)
-	// PutObject sets an object
-	PutObject(r *http.Request, bucket, key string, reader io.Reader) (*PutObjectResult, error)
-	// DeleteObject deletes an object
-	DeleteObject(r *http.Request, bucket, key, version string) (*DeleteObjectResult, error)
-}
-
-// unimplementedObjectController defines a controller that returns
-// `NotImplementedError` for all functionality
-type unimplementedObjectController struct{}
-
-func (c unimplementedObjectController) GetObject(r *http.Request, bucket, key, version string) (*GetObjectResult, error) {
-	return nil, NotImplementedError(r)
-}
-
-func (c unimplementedObjectController) CopyObject(r *http.Request, srcBucket, srcKey string, getResult *GetObjectResult, destBucket, destKey string) (string, error) {
-	return "", NotImplementedError(r)
-}
-
-func (c unimplementedObjectController) PutObject(r *http.Request, bucket, key string, reader io.Reader) (*PutObjectResult, error) {
-	return nil, NotImplementedError(r)
-}
-
-func (c unimplementedObjectController) DeleteObject(r *http.Request, bucket, key, version string) (*DeleteObjectResult, error) {
-	return nil, NotImplementedError(r)
-}
 
 type objectHandler struct {
 	controller ObjectController
@@ -92,12 +25,12 @@ func (h *objectHandler) get(w http.ResponseWriter, r *http.Request) {
 
 	result, err := h.controller.GetObject(r, bucket, key, versionId)
 	if err != nil {
-		WriteError(w, r, err)
+		s3util.WriteError(w, r, err)
 		return
 	}
 
 	if result.ETag != "" {
-		w.Header().Set("ETag", addETagQuotes(result.ETag))
+		w.Header().Set("ETag", s3util.AddETagQuotes(result.ETag))
 	}
 	if result.Version != "" {
 		w.Header().Set("x-amz-version-id", result.Version)
@@ -105,7 +38,7 @@ func (h *objectHandler) get(w http.ResponseWriter, r *http.Request) {
 
 	if result.DeleteMarker {
 		w.Header().Set("x-amz-delete-marker", "true")
-		WriteError(w, r, NoSuchKeyError(r))
+		s3util.WriteError(w, r, s3error.NoSuchKeyError(r))
 		return
 	}
 
@@ -121,7 +54,7 @@ func (h *objectHandler) copy(w http.ResponseWriter, r *http.Request) {
 	var srcKey string
 	srcURL, err := url.Parse(r.Header.Get("x-amz-copy-source"))
 	if err != nil {
-		WriteError(w, r, InvalidArgumentError(r))
+		s3util.WriteError(w, r, s3error.InvalidArgumentError(r))
 		return
 	}
 	srcPath := strings.SplitN(srcURL.Path, "/", 3)
@@ -130,30 +63,30 @@ func (h *objectHandler) copy(w http.ResponseWriter, r *http.Request) {
 		srcKey = srcPath[1]
 	} else if len(srcPath) == 3 {
 		if srcPath[0] != "" {
-			WriteError(w, r, InvalidArgumentError(r))
+			s3util.WriteError(w, r, s3error.InvalidArgumentError(r))
 			return
 		}
 		srcBucket = srcPath[1]
 		srcKey = srcPath[2]
 	} else {
-		WriteError(w, r, InvalidArgumentError(r))
+		s3util.WriteError(w, r, s3error.InvalidArgumentError(r))
 		return
 	}
 	srcVersionID := srcURL.Query().Get("versionId")
 
 	if srcBucket == "" {
-		WriteError(w, r, InvalidBucketNameError(r))
+		s3util.WriteError(w, r, s3error.InvalidBucketNameError(r))
 		return
 	}
 	if srcKey == "" {
-		WriteError(w, r, NoSuchKeyError(r))
+		s3util.WriteError(w, r, s3error.NoSuchKeyError(r))
 		return
 	}
 	if srcBucket == destBucket && srcKey == destKey && srcVersionID == "" {
 		// If we ever add support for object metadata, this error should not
 		// trigger in the case where metadata is changed, since it is a valid
 		// way to alter the metadata of an object
-		WriteError(w, r, InvalidRequestError(r, "source and destination are the same"))
+		s3util.WriteError(w, r, s3error.InvalidRequestError(r, "source and destination are the same"))
 		return
 	}
 
@@ -164,37 +97,37 @@ func (h *objectHandler) copy(w http.ResponseWriter, r *http.Request) {
 
 	getResult, err := h.controller.GetObject(r, srcBucket, srcKey, srcVersionID)
 	if err != nil {
-		WriteError(w, r, err)
+		s3util.WriteError(w, r, err)
 		return
 	}
 	if getResult.DeleteMarker {
-		WriteError(w, r, NoSuchKeyError(r))
+		s3util.WriteError(w, r, s3error.NoSuchKeyError(r))
 		return
 	}
 
-	if !checkIfMatch(ifMatch, getResult.ETag) {
-		WriteError(w, r, PreconditionFailedError(r))
+	if !s3util.CheckIfMatch(ifMatch, getResult.ETag) {
+		s3util.WriteError(w, r, s3error.PreconditionFailedError(r))
 		return
 	}
 
-	if !checkIfNoneMatch(ifNoneMatch, getResult.ETag) {
-		WriteError(w, r, PreconditionFailedError(r))
+	if !s3util.CheckIfNoneMatch(ifNoneMatch, getResult.ETag) {
+		s3util.WriteError(w, r, s3error.PreconditionFailedError(r))
 		return
 	}
 
-	if !checkIfUnmodifiedSince(ifUnmodifiedSince, getResult.ModTime) {
-		WriteError(w, r, PreconditionFailedError(r))
+	if !s3util.CheckIfUnmodifiedSince(ifUnmodifiedSince, getResult.ModTime) {
+		s3util.WriteError(w, r, s3error.PreconditionFailedError(r))
 		return
 	}
 
-	if !checkIfModifiedSince(ifModifiedSince, getResult.ModTime) {
-		WriteError(w, r, PreconditionFailedError(r))
+	if !s3util.CheckIfModifiedSince(ifModifiedSince, getResult.ModTime) {
+		s3util.WriteError(w, r, s3error.PreconditionFailedError(r))
 		return
 	}
 
 	destVersionID, err := h.controller.CopyObject(r, srcBucket, srcKey, getResult, destBucket, destKey)
 	if err != nil {
-		WriteError(w, r, err)
+		s3util.WriteError(w, r, err)
 		return
 	}
 
@@ -215,7 +148,7 @@ func (h *objectHandler) copy(w http.ResponseWriter, r *http.Request) {
 		ETag:         getResult.ETag,
 	}
 
-	writeXML(w, r, http.StatusOK, marshallable)
+	s3util.WriteXML(w, r, http.StatusOK, marshallable)
 }
 
 func (h *objectHandler) put(w http.ResponseWriter, r *http.Request) {
@@ -227,8 +160,8 @@ func (h *objectHandler) put(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if len(transferEncoding) == 0 || identity {
-		if err := requireContentLength(r); err != nil {
-			WriteError(w, r, err)
+		if err := s3util.RequireContentLength(r); err != nil {
+			s3util.WriteError(w, r, err)
 			return
 		}
 	}
@@ -245,23 +178,23 @@ func (h *objectHandler) put(w http.ResponseWriter, r *http.Request) {
 		timestamp := vars["authSignatureTimestamp"]
 		date := vars["authSignatureDate"]
 		region := vars["authSignatureRegion"]
-		body = newChunkedReader(r.Body, signingKey, seedSignature, timestamp, date, region)
+		body = s3util.NewChunkedReader(r.Body, signingKey, seedSignature, timestamp, date, region)
 	} else {
 		body = r.Body
 	}
 
 	result, err := h.controller.PutObject(r, bucket, key, body)
 	if err != nil {
-		if err == InvalidChunk {
-			WriteError(w, r, SignatureDoesNotMatchError(r))
+		if err == s3util.InvalidChunk {
+			s3util.WriteError(w, r, s3error.SignatureDoesNotMatchError(r))
 		} else {
-			WriteError(w, r, err)
+			s3util.WriteError(w, r, err)
 		}
 		return
 	}
 
 	if result.ETag != "" {
-		w.Header().Set("ETag", addETagQuotes(result.ETag))
+		w.Header().Set("ETag", s3util.AddETagQuotes(result.ETag))
 	}
 	if result.Version != "" {
 		w.Header().Set("x-amz-version-id", result.Version)
@@ -277,7 +210,7 @@ func (h *objectHandler) del(w http.ResponseWriter, r *http.Request) {
 
 	result, err := h.controller.DeleteObject(r, bucket, key, versionId)
 	if err != nil {
-		WriteError(w, r, err)
+		s3util.WriteError(w, r, err)
 		return
 	}
 
@@ -302,8 +235,8 @@ func (h *objectHandler) post(w http.ResponseWriter, r *http.Request) {
 			Version string `xml:"VersionId"`
 		} `xml:"Object"`
 	}{}
-	if err := readXMLBody(r, &payload); err != nil {
-		WriteError(w, r, err)
+	if err := s3util.ReadXMLBody(r, &payload); err != nil {
+		s3util.WriteError(w, r, err)
 		return
 	}
 
@@ -337,7 +270,7 @@ func (h *objectHandler) post(w http.ResponseWriter, r *http.Request) {
 	for _, object := range payload.Objects {
 		result, err := h.controller.DeleteObject(r, bucket, object.Key, object.Version)
 		if err != nil {
-			s3Err := newGenericError(r, err)
+			s3Err := s3error.NewGenericError(r, err)
 
 			marshallable.Errors = append(marshallable.Errors, struct {
 				Key     string `xml:"Key"`
@@ -370,5 +303,5 @@ func (h *objectHandler) post(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	writeXML(w, r, http.StatusOK, marshallable)
+	s3util.WriteXML(w, r, http.StatusOK, marshallable)
 }

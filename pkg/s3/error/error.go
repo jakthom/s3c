@@ -1,4 +1,4 @@
-package s2
+package s3error
 
 import (
 	"fmt"
@@ -32,10 +32,10 @@ func NewError(r *http.Request, httpStatus int, code string, message string) *Err
 	}
 }
 
-// newGenericError takes in a generic error, and returns an s2 `Error`. If
-// the input error is not already an s2 `Error`, it is turned into an
+// NewGenericError takes in a generic error, and returns an s3 `Error`. If
+// the input error is not already an s3 `Error`, it is turned into an
 // `InternalError`.
-func newGenericError(r *http.Request, err error) *Error {
+func NewGenericError(r *http.Request, err error) *Error {
 	switch e := err.(type) {
 	case *Error:
 		return e

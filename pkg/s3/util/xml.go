@@ -1,4 +1,4 @@
-package s2
+package s3util
 
 import (
 	"encoding/xml"
@@ -7,17 +7,18 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
+	s3error "github.com/jakthom/s3c/pkg/s3/error"
 	zlog "github.com/rs/zerolog/log"
 )
 
 // WriteError serializes an error to a response as XML
 func WriteError(w http.ResponseWriter, r *http.Request, err error) {
-	s3Err := newGenericError(r, err)
-	writeXML(w, r, s3Err.HTTPStatus, s3Err)
+	s3Err := s3error.NewGenericError(r, err)
+	WriteXML(w, r, s3Err.HTTPStatus, s3Err)
 }
 
 // writeXMLPrelude writes the HTTP headers and XML header to the response
-func writeXMLPrelude(w http.ResponseWriter, r *http.Request, code int) {
+func WriteXMLPrelude(w http.ResponseWriter, r *http.Request, code int) {
 	vars := mux.Vars(r)
 	requestID := vars["requestID"]
 
@@ -29,7 +30,7 @@ func writeXMLPrelude(w http.ResponseWriter, r *http.Request, code int) {
 }
 
 // writeXMLBody writes the marshaled XML payload of a value
-func writeXMLBody(w http.ResponseWriter, v interface{}) {
+func WriteXMLBody(w http.ResponseWriter, v interface{}) {
 	encoder := xml.NewEncoder(w)
 	if err := encoder.Encode(v); err != nil {
 		// just log a message since a response has already been partially written
@@ -37,23 +38,23 @@ func writeXMLBody(w http.ResponseWriter, v interface{}) {
 	}
 }
 
-// writeXML writes HTTP headers, the XML header, and the XML payload to the
+// WriteXML writes HTTP headers, the XML header, and the XML payload to the
 // response
-func writeXML(w http.ResponseWriter, r *http.Request, code int, v interface{}) {
-	writeXMLPrelude(w, r, code)
-	writeXMLBody(w, v)
+func WriteXML(w http.ResponseWriter, r *http.Request, code int, v interface{}) {
+	WriteXMLPrelude(w, r, code)
+	WriteXMLBody(w, v)
 }
 
 // readXMLBody reads an HTTP request body's bytes, and unmarshals it into
 // `payload`.
-func readXMLBody(r *http.Request, payload interface{}) error {
+func ReadXMLBody(r *http.Request, payload interface{}) error {
 	bodyBytes, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		return err
 	}
 	err = xml.Unmarshal(bodyBytes, &payload)
 	if err != nil {
-		return MalformedXMLError(r)
+		return s3error.MalformedXMLError(r)
 	}
 	return nil
 }

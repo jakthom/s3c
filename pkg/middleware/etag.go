@@ -3,7 +3,7 @@ package middleware
 import (
 	"net/http"
 
-	"github.com/jakthom/s3c/src/header"
+	"github.com/jakthom/s3c/pkg/header"
 	"github.com/rs/zerolog/log"
 )
 

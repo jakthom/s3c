@@ -1,4 +1,4 @@
-package s2
+package s3util
 
 import (
 	"bufio"
@@ -33,7 +33,7 @@ type chunkedReader struct {
 	region        string
 }
 
-func newChunkedReader(body io.ReadCloser, signingKey []byte, seedSignature, timestamp, date, region string) *chunkedReader {
+func NewChunkedReader(body io.ReadCloser, signingKey []byte, seedSignature, timestamp, date, region string) *chunkedReader {
 	return &chunkedReader{
 		body:      body,
 		lastChunk: nil,
