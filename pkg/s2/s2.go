@@ -15,7 +15,7 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
-	"github.com/jakthom/s3c/src/middleware"
+	"github.com/jakthom/s3c/pkg/middleware"
 	zlog "github.com/rs/zerolog/log"
 )
 
@@ -472,7 +472,7 @@ func (h *S2) Router() *mux.Router {
 	router.Use(middleware.EtagMiddleware)
 	router.Use(h.bodyReadingMiddleware)
 
-	router.Path(`/`).Methods("GET", "HEAD").HandlerFunc(serviceHandler.get) // TODO -> implement HEAD
+	router.Path(`/`).Methods("GET", "HEAD").HandlerFunc(serviceHandler.get)
 
 	// Bucket-related routes. Repo validation regex is the same that the aws
 	// cli uses. There's two routers - one with a trailing a slash and one

@@ -44,7 +44,8 @@ func (s *S3c) Run() {
 	// Set up http server and register s2 handlers
 
 	router := mux.NewRouter()
-	router.Handle("/{id}", middleware.RequestIdMiddleware(middleware.RequestLoggerMiddleware(http.HandlerFunc(handler.HealthcheckHandler))))
+	router.Handle("/s3c/health", middleware.RequestIdMiddleware(middleware.RequestLoggerMiddleware(http.HandlerFunc(handler.HealthcheckHandler))))
+	router.Handle("/{path}", middleware.RequestIdMiddleware(middleware.RequestLoggerMiddleware(http.HandlerFunc(handler.HealthcheckHandler))))
 
 	srv := &http.Server{
 		Addr:    ":" + s.config.Port,

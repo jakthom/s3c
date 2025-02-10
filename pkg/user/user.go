@@ -1,4 +1,4 @@
-package s2
+package s3user
 
 // User is an XML marshallable representation of an S3 user
 type User struct {

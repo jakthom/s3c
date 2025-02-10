@@ -8,3 +8,6 @@ auth:
 origin:
   type: s3
   bucket: mybucket
+  location: us-west-2
+  user: s3c
+  storageclass: STANDARD

@@ -1,4 +1,4 @@
-package s2
+package s3util
 
 // This is largely lifted from go's stdlib net/http, but modified to be
 // simpler and to work with amazon's proprietary `x-amz-`-prefixed
@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-func checkIfMatch(im string, etag string) bool {
+func CheckIfMatch(im string, etag string) bool {
 	if im == "" {
 		return true
 	}
@@ -41,7 +41,7 @@ func checkIfMatch(im string, etag string) bool {
 	return false
 }
 
-func checkIfNoneMatch(inm string, etag string) bool {
+func CheckIfNoneMatch(inm string, etag string) bool {
 	if inm == "" {
 		return true
 	}
@@ -71,7 +71,7 @@ func checkIfNoneMatch(inm string, etag string) bool {
 	return true
 }
 
-func checkIfUnmodifiedSince(ius string, modtime time.Time) bool {
+func CheckIfUnmodifiedSince(ius string, modtime time.Time) bool {
 	if ius == "" || isZeroTime(modtime) {
 		return true
 	}
@@ -89,7 +89,7 @@ func checkIfUnmodifiedSince(ius string, modtime time.Time) bool {
 	return false
 }
 
-func checkIfModifiedSince(ims string, modtime time.Time) bool {
+func CheckIfModifiedSince(ims string, modtime time.Time) bool {
 	if ims == "" || isZeroTime(modtime) {
 		return true
 	}
