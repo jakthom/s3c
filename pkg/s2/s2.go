@@ -47,6 +47,7 @@ var (
 	}
 )
 
+<<<<<<< Updated upstream
 // attachBucketRoutes adds bucket-related routes to a router
 func attachBucketRoutes(router *mux.Router, handler *bucketHandler, multipartHandler *multipartHandler, objectHandler *objectHandler) {
 	router.Methods("GET").Queries("versioning", "").HandlerFunc(handler.versioning)
@@ -75,6 +76,8 @@ func attachObjectRoutes(router *mux.Router, handler *objectHandler, multipartHan
 	router.Methods("DELETE").HandlerFunc(handler.del)
 }
 
+=======
+>>>>>>> Stashed changes
 // S2 is the root struct used in the s2 library
 type S2 struct {
 	Auth                 AuthController
@@ -346,6 +349,7 @@ func (h *S2) Router() *mux.Router {
 
 	router.Path(`/`).Methods("GET", "HEAD").HandlerFunc(serviceHandler.get)
 
+<<<<<<< Updated upstream
 	// Bucket-related routes. Repo validation regex is the same that the aws
 	// cli uses. There's two routers - one with a trailing a slash and one
 	// without. Both route to the same handlers, i.e. a request to `/foo` is
@@ -361,6 +365,8 @@ func (h *S2) Router() *mux.Router {
 	objectRouter := router.Path(`/{bucket:[a-zA-Z0-9\-_\.]{1,255}}/{key:.+}`).Subrouter()
 	attachObjectRoutes(objectRouter, objectHandler, multipartHandler)
 
+=======
+>>>>>>> Stashed changes
 	router.MethodNotAllowedHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		zlog.Error().Str("method", r.Method).Str("path", r.URL.Path).Msg("method not allowed")
 		WriteError(w, r, MethodNotAllowedError(r))

@@ -15,6 +15,7 @@ import (
 	"github.com/jakthom/s3c/pkg/middleware"
 	fileorigin "github.com/jakthom/s3c/pkg/origin/file"
 	s3notimplemented "github.com/jakthom/s3c/pkg/s3/notimplemented"
+	s3object "github.com/jakthom/s3c/pkg/s3/object"
 	s3service "github.com/jakthom/s3c/pkg/s3/service"
 	"github.com/jakthom/s3c/pkg/util"
 	"github.com/rs/zerolog/log"
@@ -25,6 +26,11 @@ var VERSION string
 type S3c struct {
 	config         *config.Config
 	serviceHandler *s3service.ServiceHandler
+<<<<<<< Updated upstream
+=======
+	bucketHandler  *s3bucket.BucketHandler
+	objectHandler  *s3object.ObjectHandler
+>>>>>>> Stashed changes
 }
 
 func (s *S3c) configure() {
@@ -44,7 +50,17 @@ func (s *S3c) Initialize() {
 	s.serviceHandler = &s3service.ServiceHandler{
 		Controller: &fileorigin.FileOriginServiceController{},
 	}
+<<<<<<< Updated upstream
 
+=======
+	s.bucketHandler = &s3bucket.BucketHandler{
+		Controller: s.origin.BucketController,
+	}
+	s.objectHandler = &s3object.ObjectHandler{
+		Controller: s.origin.ObjectController,
+	}
+	s.initializeServer()
+>>>>>>> Stashed changes
 }
 
 func (s *S3c) Run() {
@@ -54,11 +70,19 @@ func (s *S3c) Run() {
 	router := mux.NewRouter()
 	s3notimplemented.AddNotImplementedRoutes(router)
 	router.Use(middleware.RequestIdMiddleware)
-	router.Use(middleware.RequestLoggerMiddleware)
+	// router.Use(middleware.RequestLoggerMiddleware)
+	router.Use(middleware.DebugMiddleware)
 	router.Handle("/s3c/health", http.HandlerFunc(handler.HealthcheckHandler))
 	router.Handle("/", http.HandlerFunc(s.serviceHandler.Get)) // Service
+<<<<<<< Updated upstream
 	router.Handle("/{path}", http.HandlerFunc(handler.HealthcheckHandler))
 
+=======
+	// S3 Object
+	s3object.AddSubrouter(router, s.objectHandler)
+	// S3 Bucket
+	s3bucket.AddSubrouter(router, s.bucketHandler)
+>>>>>>> Stashed changes
 	srv := &http.Server{
 		Addr:    ":" + s.config.Port,
 		Handler: router,
