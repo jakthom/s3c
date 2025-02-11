@@ -15,7 +15,7 @@ import (
 	"github.com/jakthom/s3c/pkg/middleware"
 	fileorigin "github.com/jakthom/s3c/pkg/origin/file"
 	s3bucket "github.com/jakthom/s3c/pkg/s3/bucket"
-	s3notimplemented "github.com/jakthom/s3c/pkg/s3/notimplemented"
+	s3handler "github.com/jakthom/s3c/pkg/s3/handler"
 	s3object "github.com/jakthom/s3c/pkg/s3/object"
 	s3service "github.com/jakthom/s3c/pkg/s3/service"
 	"github.com/jakthom/s3c/pkg/util"
@@ -45,18 +45,25 @@ func (s *S3c) configure() {
 }
 
 func (s *S3c) initializeServer() {
-	// Set up http server and register s2 handlers
-
 	router := mux.NewRouter()
-	s3notimplemented.AddNotImplementedRoutes(router)
+	// Middlewares
 	router.Use(middleware.RequestIdMiddleware)
 	// router.Use(middleware.RequestLoggerMiddleware)
 	router.Use(middleware.DebugMiddleware)
+	// s3c metadata routes
 	router.Handle("/s3c/health", http.HandlerFunc(handler.HealthcheckHandler))
+	// S3 Service
 	router.Handle("/", http.HandlerFunc(s.serviceHandler.Get)) // Service
+	// S3 Object
 	s3object.AddSubrouter(router, s.objectHandler)
 	// S3 Bucket
 	s3bucket.AddSubrouter(router, s.bucketHandler)
+	// Not Implemented routes
+	s3handler.AddNotImplementedRoutes(router)
+	// Method Not Allowed
+	router.MethodNotAllowedHandler = s3handler.MethodNotAllowedHandler()
+	// Not Found Handler
+	router.NotFoundHandler = s3handler.NotFoundHandler()
 	s.server = &http.Server{
 		Addr:    ":" + s.config.Port,
 		Handler: router,

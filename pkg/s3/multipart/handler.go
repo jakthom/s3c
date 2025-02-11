@@ -9,8 +9,8 @@ import (
 
 	"github.com/gorilla/mux"
 	s3error "github.com/jakthom/s3c/pkg/s3/error"
+	s3user "github.com/jakthom/s3c/pkg/s3/user"
 	s3util "github.com/jakthom/s3c/pkg/s3/util"
-	s3user "github.com/jakthom/s3c/pkg/user"
 )
 
 type multipartHandler struct {

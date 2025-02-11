@@ -1,4 +1,4 @@
-package s3notimplemented
+package s3handler
 
 import (
 	"net/http"
@@ -7,9 +7,7 @@ import (
 	s3util "github.com/jakthom/s3c/pkg/s3/util"
 )
 
-// NotImplementedHandler creates an endpoint that returns
-// `NotImplementedError` responses. This can be used in places expecting a
-// `HandlerFunc`, e.g. mux middleware.
+// NotImplementedHandler creates an endpoint that returns `NotImplementedError` responses.
 func NotImplementedHandler() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		s3util.WriteError(w, r, s3error.NotImplementedError(r))

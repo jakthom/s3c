@@ -1,4 +1,4 @@
-package s3notimplemented
+package s3handler
 
 import "github.com/gorilla/mux"
 

@@ -4,7 +4,7 @@ import (
 	"encoding/xml"
 
 	s3bucket "github.com/jakthom/s3c/pkg/s3/bucket"
-	s3user "github.com/jakthom/s3c/pkg/user"
+	s3user "github.com/jakthom/s3c/pkg/s3/user"
 )
 
 // ListBucketsResult is a response from a ListBucket call
