@@ -15,36 +15,12 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
-	"github.com/jakthom/s3c/pkg/middleware"
-	zlog "github.com/rs/zerolog/log"
 )
 
 var (
-	// bucketNameValidator is a regex for validating bucket names
-	bucketNameValidator = regexp.MustCompile(`^/[a-zA-Z0-9\-_\.]{1,255}/`)
 	// authV4HeaderValidator is a regex for validating the authorization
 	// header when using AWs' auth V4
 	authV4HeaderValidator = regexp.MustCompile(`^AWS4-HMAC-SHA256 Credential=([^/]*)/([^/]*)/([^/]*)/s3/aws4_request, ?SignedHeaders=([^,]+), ?Signature=(.+)$`)
-
-	// subresourceQueryParams is a list of query parameters that are
-	// considered queries for "subresources" in S3. This is used in
-	// auth validation.
-	subresourceQueryParams = []string{
-		"acl",
-		"lifecycle",
-		"location",
-		"logging",
-		"notification",
-		"partNumber",
-		"policy",
-		"requestPayment",
-		"torrent",
-		"uploadId",
-		"uploads",
-		"versionId",
-		"versioning",
-		"versions",
-	}
 )
 
 // S2 is the root struct used in the s2 library
@@ -285,46 +261,4 @@ func (h *S2) readBody(r *http.Request, length uint32) (*bytes.Buffer, error) {
 	case <-time.After(h.readBodyTimeout):
 		return nil, nil
 	}
-}
-
-// Router creates a new mux router.
-func (h *S2) Router() *mux.Router {
-	serviceHandler := &serviceHandler{
-		controller: h.Service,
-	}
-	bucketHandler := &bucketHandler{
-		controller: h.Bucket,
-	}
-	objectHandler := &objectHandler{
-		controller: h.Object,
-	}
-	multipartHandler := &multipartHandler{
-		controller: h.Multipart,
-	}
-
-	router := mux.NewRouter()
-	router.Use(middleware.RequestIdMiddleware)
-	if h.Auth != nil {
-		router.Use(h.authMiddleware)
-	}
-	router.Use(middleware.EtagMiddleware)
-	router.Use(h.bodyReadingMiddleware)
-
-	router.Path(`/`).Methods("GET", "HEAD").HandlerFunc(serviceHandler.get)
-
-	router.MethodNotAllowedHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		zlog.Error().Str("method", r.Method).Str("path", r.URL.Path).Msg("method not allowed")
-		WriteError(w, r, MethodNotAllowedError(r))
-	})
-
-	router.NotFoundHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		zlog.Info().Str("path", r.URL.Path).Msg("path not found")
-		if bucketNameValidator.MatchString(r.URL.Path) {
-			WriteError(w, r, NoSuchKeyError(r))
-		} else {
-			WriteError(w, r, InvalidBucketNameError(r))
-		}
-	})
-
-	return router
 }

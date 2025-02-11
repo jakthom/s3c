@@ -3,7 +3,7 @@ package s3multipart
 import (
 	"time"
 
-	s3user "github.com/jakthom/s3c/pkg/user"
+	s3user "github.com/jakthom/s3c/pkg/s3/user"
 )
 
 // Upload is an XML marshallable representation of an in-progress multipart
