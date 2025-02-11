@@ -68,7 +68,7 @@ func (s *S3c) Initialize() {
 	s.configure()
 	s.origin = fileorigin.NewOrigin("data")
 	s.serviceHandler = &s3service.ServiceHandler{
-		Controller: &fileorigin.FileOriginServiceController{},
+		Controller: s.origin.ServiceController,
 	}
 	s.bucketHandler = &s3bucket.BucketHandler{
 		Controller: s.origin.BucketController,
