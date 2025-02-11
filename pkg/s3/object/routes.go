@@ -20,7 +20,7 @@ func attachRoutes(router *mux.Router, handler *ObjectHandler) {
 	// router.Methods("DELETE").Queries("uploadId", "").HandlerFunc(multipartHandler.del)
 	// router.Methods("HEAD").HandlerFunc(handler.Head)
 	router.Methods("GET", "HEAD").HandlerFunc(handler.Get)
-	// router.Methods("PUT").Headers("x-amz-copy-source", "").HandlerFunc(handler.copy)
+	router.Methods("PUT").Headers("x-amz-copy-source", "").HandlerFunc(handler.Copy)
 	router.Methods("PUT").HandlerFunc(handler.Put)
 	router.Methods("DELETE").HandlerFunc(handler.Del)
 }

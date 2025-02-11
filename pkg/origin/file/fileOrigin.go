@@ -104,6 +104,17 @@ func (c *FileOriginBucketController) ListObjects(r *http.Request, bucket, prefix
 	return &listObjectsResult, nil
 }
 
+func (c *FileOriginObjectController) CopyObject(r *http.Request, srcBucket, srcKey string, getResult *s3object.GetObjectResult, destBucket, destKey string) (string, error) {
+	sourcePath := filepath.Join(c.dataDir, srcBucket, srcKey)
+	destinationPath := filepath.Join(c.dataDir, destBucket, destKey)
+	err := copyFile(sourcePath, destinationPath)
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to copy object from path: " + sourcePath + " to path: " + destinationPath)
+		return "", err
+	}
+	return destinationPath, nil
+}
+
 func (c *FileOriginBucketController) CreateBucket(r *http.Request, bucket string) error {
 	bucketDir := filepath.Join(c.dataDir, bucket)
 	err := os.Mkdir(bucketDir, 0755)

@@ -1,8 +1,12 @@
 package s3object
 
 import (
+	"encoding/xml"
 	"io"
 	"net/http"
+	"net/url"
+	"strings"
+	"time"
 
 	"github.com/gorilla/mux"
 	s3error "github.com/jakthom/s3c/pkg/s3/error"
@@ -43,111 +47,103 @@ func (h *ObjectHandler) Get(w http.ResponseWriter, r *http.Request) {
 	http.ServeContent(w, r, key, result.ModTime, result.Content)
 }
 
-// func (h *objectHandler) copy(w http.ResponseWriter, r *http.Request) {
-// 	vars := mux.Vars(r)
-// 	destBucket := vars["bucket"]
-// 	destKey := vars["key"]
+func (h *ObjectHandler) Copy(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	destBucket := vars["bucket"]
+	destKey := vars["key"]
 
-// 	var srcBucket string
-// 	var srcKey string
-// 	srcURL, err := url.Parse(r.Header.Get("x-amz-copy-source"))
-// 	if err != nil {
-// 		s3util.WriteError(w, r, s3error.InvalidArgumentError(r))
-// 		return
-// 	}
-// 	srcPath := strings.SplitN(srcURL.Path, "/", 3)
-// 	if len(srcPath) == 2 {
-// 		srcBucket = srcPath[0]
-// 		srcKey = srcPath[1]
-// 	} else if len(srcPath) == 3 {
-// 		if srcPath[0] != "" {
-// 			s3util.WriteError(w, r, s3error.InvalidArgumentError(r))
-// 			return
-// 		}
-// 		srcBucket = srcPath[1]
-// 		srcKey = srcPath[2]
-// 	} else {
-// 		s3util.WriteError(w, r, s3error.InvalidArgumentError(r))
-// 		return
-// 	}
-// 	srcVersionID := srcURL.Query().Get("versionId")
+	var srcBucket string
+	var srcKey string
+	srcURL, err := url.Parse(r.Header.Get("x-amz-copy-source"))
+	if err != nil {
+		s3util.WriteError(w, r, s3error.InvalidArgumentError(r))
+		return
+	}
+	srcPath := strings.SplitN(srcURL.Path, "/", 3)
+	srcBucket = srcPath[0]
+	srcKey = strings.Replace(srcURL.Path, srcBucket+"/", "", 1)
+	if len(srcPath) <= 1 {
+		s3util.WriteError(w, r, s3error.InvalidArgumentError(r))
+		return
+	}
+	srcVersionID := srcURL.Query().Get("versionId")
 
-// 	if srcBucket == "" {
-// 		s3util.WriteError(w, r, s3error.InvalidBucketNameError(r))
-// 		return
-// 	}
-// 	if srcKey == "" {
-// 		s3util.WriteError(w, r, s3error.NoSuchKeyError(r))
-// 		return
-// 	}
-// 	if srcBucket == destBucket && srcKey == destKey && srcVersionID == "" {
-// 		// If we ever add support for object metadata, this error should not
-// 		// trigger in the case where metadata is changed, since it is a valid
-// 		// way to alter the metadata of an object
-// 		s3util.WriteError(w, r, s3error.InvalidRequestError(r, "source and destination are the same"))
-// 		return
-// 	}
+	if srcBucket == "" {
+		s3util.WriteError(w, r, s3error.InvalidBucketNameError(r))
+		return
+	}
+	if srcKey == "" {
+		s3util.WriteError(w, r, s3error.NoSuchKeyError(r))
+		return
+	}
+	if srcBucket == destBucket && srcKey == destKey && srcVersionID == "" {
+		// If we ever add support for object metadata, this error should not
+		// trigger in the case where metadata is changed, since it is a valid
+		// way to alter the metadata of an object
+		s3util.WriteError(w, r, s3error.InvalidRequestError(r, "source and destination are the same"))
+		return
+	}
 
-// 	ifMatch := r.Header.Get("x-amz-copy-source-if-match")
-// 	ifNoneMatch := r.Header.Get("x-amz-copy-source-if-none-match")
-// 	ifUnmodifiedSince := r.Header.Get("x-amz-copy-source-if-unmodified-since")
-// 	ifModifiedSince := r.Header.Get("x-amz-copy-source-if-modified-since")
+	ifMatch := r.Header.Get("x-amz-copy-source-if-match")
+	ifNoneMatch := r.Header.Get("x-amz-copy-source-if-none-match")
+	ifUnmodifiedSince := r.Header.Get("x-amz-copy-source-if-unmodified-since")
+	ifModifiedSince := r.Header.Get("x-amz-copy-source-if-modified-since")
 
-// 	getResult, err := h.controller.GetObject(r, srcBucket, srcKey, srcVersionID)
-// 	if err != nil {
-// 		s3util.WriteError(w, r, err)
-// 		return
-// 	}
-// 	if getResult.DeleteMarker {
-// 		s3util.WriteError(w, r, s3error.NoSuchKeyError(r))
-// 		return
-// 	}
+	getResult, err := h.Controller.GetObject(r, srcBucket, srcKey, srcVersionID)
+	if err != nil {
+		s3util.WriteError(w, r, err)
+		return
+	}
+	if getResult.DeleteMarker {
+		s3util.WriteError(w, r, s3error.NoSuchKeyError(r))
+		return
+	}
 
-// 	if !s3util.CheckIfMatch(ifMatch, getResult.ETag) {
-// 		s3util.WriteError(w, r, s3error.PreconditionFailedError(r))
-// 		return
-// 	}
+	if !s3util.CheckIfMatch(ifMatch, getResult.ETag) {
+		s3util.WriteError(w, r, s3error.PreconditionFailedError(r))
+		return
+	}
 
-// 	if !s3util.CheckIfNoneMatch(ifNoneMatch, getResult.ETag) {
-// 		s3util.WriteError(w, r, s3error.PreconditionFailedError(r))
-// 		return
-// 	}
+	if !s3util.CheckIfNoneMatch(ifNoneMatch, getResult.ETag) {
+		s3util.WriteError(w, r, s3error.PreconditionFailedError(r))
+		return
+	}
 
-// 	if !s3util.CheckIfUnmodifiedSince(ifUnmodifiedSince, getResult.ModTime) {
-// 		s3util.WriteError(w, r, s3error.PreconditionFailedError(r))
-// 		return
-// 	}
+	if !s3util.CheckIfUnmodifiedSince(ifUnmodifiedSince, getResult.ModTime) {
+		s3util.WriteError(w, r, s3error.PreconditionFailedError(r))
+		return
+	}
 
-// 	if !s3util.CheckIfModifiedSince(ifModifiedSince, getResult.ModTime) {
-// 		s3util.WriteError(w, r, s3error.PreconditionFailedError(r))
-// 		return
-// 	}
+	if !s3util.CheckIfModifiedSince(ifModifiedSince, getResult.ModTime) {
+		s3util.WriteError(w, r, s3error.PreconditionFailedError(r))
+		return
+	}
 
-// 	destVersionID, err := h.controller.CopyObject(r, srcBucket, srcKey, getResult, destBucket, destKey)
-// 	if err != nil {
-// 		s3util.WriteError(w, r, err)
-// 		return
-// 	}
+	destVersionID, err := h.Controller.CopyObject(r, srcBucket, srcKey, getResult, destBucket, destKey)
+	if err != nil {
+		s3util.WriteError(w, r, err)
+		return
+	}
 
-// 	if getResult.Version != "" {
-// 		w.Header().Set("x-amz-copy-source-version-id", getResult.Version)
-// 	}
+	if getResult.Version != "" {
+		w.Header().Set("x-amz-copy-source-version-id", getResult.Version)
+	}
 
-// 	if destVersionID != "" {
-// 		w.Header().Set("x-amz-version-id", srcVersionID)
-// 	}
+	if destVersionID != "" {
+		w.Header().Set("x-amz-version-id", srcVersionID)
+	}
 
-// 	marshallable := struct {
-// 		XMLName      xml.Name  `xml:"http://s3.amazonaws.com/doc/2006-03-01/ CopyObjectResult"`
-// 		LastModified time.Time `xml:"LastModified"`
-// 		ETag         string    `xml:"ETag"`
-// 	}{
-// 		LastModified: getResult.ModTime,
-// 		ETag:         getResult.ETag,
-// 	}
+	marshallable := struct {
+		XMLName      xml.Name  `xml:"http://s3.amazonaws.com/doc/2006-03-01/ CopyObjectResult"`
+		LastModified time.Time `xml:"LastModified"`
+		ETag         string    `xml:"ETag"`
+	}{
+		LastModified: getResult.ModTime,
+		ETag:         getResult.ETag,
+	}
 
-// 	s3util.WriteXML(w, r, http.StatusOK, marshallable)
-// }
+	s3util.WriteXML(w, r, http.StatusOK, marshallable)
+}
 
 func (h *ObjectHandler) Put(w http.ResponseWriter, r *http.Request) {
 	transferEncoding := r.Header["Transfer-Encoding"]
