@@ -19,6 +19,7 @@ type FileOrigin struct {
 }
 
 func NewOrigin(dataDirectory string) *FileOrigin {
+	os.Mkdir(dataDirectory, 0755)
 	return &FileOrigin{
 		ServiceController: &FileOriginServiceController{
 			dataDir: dataDirectory,
