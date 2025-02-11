@@ -12,8 +12,6 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-const DEFAULT_DIRECTORY = "data"
-
 type FileOrigin struct {
 	ServiceController *FileOriginServiceController
 	BucketController  *FileOriginBucketController
