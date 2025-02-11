@@ -16,6 +16,7 @@ import (
 	fileorigin "github.com/jakthom/s3c/pkg/origin/file"
 	s3bucket "github.com/jakthom/s3c/pkg/s3/bucket"
 	s3handler "github.com/jakthom/s3c/pkg/s3/handler"
+	s3middleware "github.com/jakthom/s3c/pkg/s3/middleware"
 	s3object "github.com/jakthom/s3c/pkg/s3/object"
 	s3service "github.com/jakthom/s3c/pkg/s3/service"
 	"github.com/jakthom/s3c/pkg/util"
@@ -46,10 +47,11 @@ func (s *S3c) configure() {
 
 func (s *S3c) initializeServer() {
 	router := mux.NewRouter()
-	// Middlewares
+	// Generic Middleware
 	router.Use(middleware.RequestIdMiddleware)
-	// router.Use(middleware.RequestLoggerMiddleware)
 	router.Use(middleware.DebugMiddleware)
+	// S3 Middleware
+	router.Use(s3middleware.EtagMiddleware)
 	// s3c metadata routes
 	router.Handle("/s3c/health", http.HandlerFunc(handler.HealthcheckHandler))
 	// S3 Service

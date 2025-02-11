@@ -1,4 +1,4 @@
-package middleware
+package s3middleware
 
 import (
 	"net/http"

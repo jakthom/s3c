@@ -8,19 +8,13 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"regexp"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/gorilla/mux"
-)
-
-var (
-	// authV4HeaderValidator is a regex for validating the authorization
-	// header when using AWs' auth V4
-	authV4HeaderValidator = regexp.MustCompile(`^AWS4-HMAC-SHA256 Credential=([^/]*)/([^/]*)/([^/]*)/s3/aws4_request, ?SignedHeaders=([^,]+), ?Signature=(.+)$`)
+	s3util "github.com/jakthom/s3c/pkg/s3/util"
 )
 
 // S2 is the root struct used in the s2 library
@@ -169,7 +163,7 @@ func (h *S2) authMiddleware(next http.Handler) http.Handler { // TODO -> add mor
 // bodyReadingMiddleware creates a middleware for reading request bodies
 func (h *S2) bodyReadingMiddleware(next http.Handler) http.Handler { // TODO -> break out middleware
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		contentLengthStr, ok := singleHeader(r, "Content-Length")
+		contentLengthStr, ok := s3util.SingleHeader(r, "Content-Length")
 		if !ok {
 			next.ServeHTTP(w, r)
 			return

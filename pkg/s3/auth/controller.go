@@ -1,4 +1,4 @@
-package auth
+package s3auth
 
 import (
 	"net/http"

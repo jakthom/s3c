@@ -141,7 +141,7 @@ func hmacSHA256(key []byte, content string) []byte {
 // RequireContentLength checks to ensure that an HTTP request includes a
 // `Content-Length` header.
 func RequireContentLength(r *http.Request) error {
-	if _, ok := singleHeader(r, "Content-Length"); !ok {
+	if _, ok := SingleHeader(r, "Content-Length"); !ok {
 		return s3error.MissingContentLengthError(r)
 	}
 	return nil
@@ -150,7 +150,7 @@ func RequireContentLength(r *http.Request) error {
 // singleHeader gets a single header value. This is used in places instead of
 // `r.Header.Get()` because it differentiates between missing headers versus
 // empty header values.
-func singleHeader(r *http.Request, name string) (string, bool) {
+func SingleHeader(r *http.Request, name string) (val string, ok bool) {
 	values, ok := r.Header[name]
 	if !ok {
 		return "", false
