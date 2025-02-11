@@ -4,14 +4,14 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path/filepath"
 
 	s3bucket "github.com/jakthom/s3c/pkg/s3/bucket"
+	s3object "github.com/jakthom/s3c/pkg/s3/object"
 	s3service "github.com/jakthom/s3c/pkg/s3/service"
 	"github.com/rs/zerolog/log"
 )
 
-<<<<<<< Updated upstream
-=======
 const DEFAULT_DIRECTORY = "data"
 
 type FileOrigin struct {
@@ -34,14 +34,13 @@ func NewOrigin(dataDirectory string) *FileOrigin {
 	}
 }
 
->>>>>>> Stashed changes
 type FileOriginServiceController struct {
+	dataDir string
 }
 
 func (c *FileOriginServiceController) ListBuckets(*http.Request) (*s3service.ListBucketsResult, error) {
-	directory := "./s3c/"
-	files, err := os.ReadDir(directory)
-	log.Debug().Msg("Listing buckets in directory: " + directory)
+	files, err := os.ReadDir(c.dataDir)
+	log.Debug().Msg("Listing buckets in directory: " + c.dataDir)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to list buckets")
 		return nil, err
@@ -63,8 +62,6 @@ func (c *FileOriginServiceController) ListBuckets(*http.Request) (*s3service.Lis
 	}
 	return &listBucketsResult, nil
 }
-<<<<<<< Updated upstream
-=======
 
 type FileOriginBucketController struct {
 	dataDir string
@@ -168,4 +165,3 @@ func (c *FileOriginObjectController) DeleteObject(r *http.Request, bucket, key, 
 	}
 	return &s3object.DeleteObjectResult{}, nil
 }
->>>>>>> Stashed changes
