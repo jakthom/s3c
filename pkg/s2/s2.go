@@ -47,43 +47,9 @@ var (
 	}
 )
 
-<<<<<<< Updated upstream
-// attachBucketRoutes adds bucket-related routes to a router
-func attachBucketRoutes(router *mux.Router, handler *bucketHandler, multipartHandler *multipartHandler, objectHandler *objectHandler) {
-	router.Methods("GET").Queries("versioning", "").HandlerFunc(handler.versioning)
-	router.Methods("PUT").Queries("versioning", "").HandlerFunc(handler.setVersioning)
-	router.Methods("GET").Queries("versions", "").HandlerFunc(handler.listVersions)
-	router.Methods("GET").Queries("uploads", "").HandlerFunc(multipartHandler.list)
-	router.Methods("GET").Queries("location", "").HandlerFunc(handler.location)
-	router.Methods("GET", "HEAD").HandlerFunc(handler.get) // TODO -> implement HEAD handler
-	router.Methods("PUT").HandlerFunc(handler.put)
-	router.Methods("POST").Queries("delete", "").HandlerFunc(objectHandler.post)
-	router.Methods("DELETE").HandlerFunc(handler.del)
-
-}
-
-// attachBucketRoutes adds object-related routes to a router
-func attachObjectRoutes(router *mux.Router, handler *objectHandler, multipartHandler *multipartHandler) {
-
-	router.Methods("GET").Queries("uploadId", "").HandlerFunc(multipartHandler.listChunks)
-	router.Methods("POST").Queries("uploads", "").HandlerFunc(multipartHandler.init)
-	router.Methods("POST").Queries("uploadId", "").HandlerFunc(multipartHandler.complete)
-	router.Methods("PUT").Queries("uploadId", "").HandlerFunc(multipartHandler.put)
-	router.Methods("DELETE").Queries("uploadId", "").HandlerFunc(multipartHandler.del)
-	router.Methods("GET", "HEAD").HandlerFunc(handler.get) // TODO -> implement HEAD handler
-	router.Methods("PUT").Headers("x-amz-copy-source", "").HandlerFunc(handler.copy)
-	router.Methods("PUT").HandlerFunc(handler.put)
-	router.Methods("DELETE").HandlerFunc(handler.del)
-}
-
-=======
->>>>>>> Stashed changes
 // S2 is the root struct used in the s2 library
 type S2 struct {
 	Auth                 AuthController
-	Service              ServiceController
-	Bucket               BucketController
-	Object               ObjectController
 	Multipart            MultipartController
 	maxRequestBodyLength uint32
 	readBodyTimeout      time.Duration
@@ -97,9 +63,6 @@ type S2 struct {
 func NewS2(maxRequestBodyLength uint32, readBodyTimeout time.Duration) *S2 {
 	return &S2{
 		Auth:                 nil,
-		Service:              unimplementedServiceController{},
-		Bucket:               unimplementedBucketController{},
-		Object:               unimplementedObjectController{},
 		Multipart:            unimplementedMultipartController{},
 		maxRequestBodyLength: maxRequestBodyLength,
 		readBodyTimeout:      readBodyTimeout,
@@ -349,24 +312,6 @@ func (h *S2) Router() *mux.Router {
 
 	router.Path(`/`).Methods("GET", "HEAD").HandlerFunc(serviceHandler.get)
 
-<<<<<<< Updated upstream
-	// Bucket-related routes. Repo validation regex is the same that the aws
-	// cli uses. There's two routers - one with a trailing a slash and one
-	// without. Both route to the same handlers, i.e. a request to `/foo` is
-	// the same as `/foo/`. This is used instead of mux's builtin "strict
-	// slash" functionality, because that uses redirects which doesn't always
-	// play nice with s3 clients.
-	trailingSlashBucketRouter := router.Path(`/{bucket:[a-zA-Z0-9\-_\.]{1,255}}/`).Subrouter()
-	attachBucketRoutes(trailingSlashBucketRouter, bucketHandler, multipartHandler, objectHandler)
-	bucketRouter := router.Path(`/{bucket:[a-zA-Z0-9\-_\.]{1,255}}`).Subrouter()
-	attachBucketRoutes(bucketRouter, bucketHandler, multipartHandler, objectHandler)
-
-	// Object-related routes
-	objectRouter := router.Path(`/{bucket:[a-zA-Z0-9\-_\.]{1,255}}/{key:.+}`).Subrouter()
-	attachObjectRoutes(objectRouter, objectHandler, multipartHandler)
-
-=======
->>>>>>> Stashed changes
 	router.MethodNotAllowedHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		zlog.Error().Str("method", r.Method).Str("path", r.URL.Path).Msg("method not allowed")
 		WriteError(w, r, MethodNotAllowedError(r))
