@@ -1,4 +1,4 @@
-package s3multipart
+package s3object
 
 import (
 	"encoding/xml"
@@ -13,11 +13,11 @@ import (
 	s3util "github.com/jakthom/s3c/pkg/s3/util"
 )
 
-type multipartHandler struct {
-	controller MultipartController
+type MultipartHandler struct {
+	Controller MultipartController
 }
 
-func (h *multipartHandler) list(w http.ResponseWriter, r *http.Request) {
+func (h *MultipartHandler) List(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	bucket := vars["bucket"]
 
@@ -33,7 +33,7 @@ func (h *multipartHandler) list(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result, err := h.controller.ListMultipart(r, bucket, keyMarker, uploadIDMarker, maxUploads)
+	result, err := h.Controller.ListMultipart(r, bucket, keyMarker, uploadIDMarker, maxUploads)
 	if err != nil {
 		s3util.WriteError(w, r, err)
 		return
@@ -84,7 +84,7 @@ func (h *multipartHandler) list(w http.ResponseWriter, r *http.Request) {
 	s3util.WriteXML(w, r, http.StatusOK, marshallable)
 }
 
-func (h *multipartHandler) listChunks(w http.ResponseWriter, r *http.Request) {
+func (h *MultipartHandler) ListChunks(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	bucket := vars["bucket"]
 	key := vars["key"]
@@ -103,7 +103,7 @@ func (h *multipartHandler) listChunks(w http.ResponseWriter, r *http.Request) {
 
 	uploadID := r.FormValue("uploadId")
 
-	result, err := h.controller.ListMultipartChunks(r, bucket, key, uploadID, partNumberMarker, maxParts)
+	result, err := h.Controller.ListMultipartChunks(r, bucket, key, uploadID, partNumberMarker, maxParts)
 	if err != nil {
 		s3util.WriteError(w, r, err)
 		return
@@ -150,12 +150,12 @@ func (h *multipartHandler) listChunks(w http.ResponseWriter, r *http.Request) {
 	s3util.WriteXML(w, r, http.StatusOK, marshallable)
 }
 
-func (h *multipartHandler) init(w http.ResponseWriter, r *http.Request) {
+func (h *MultipartHandler) init(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	bucket := vars["bucket"]
 	key := vars["key"]
 
-	uploadID, err := h.controller.InitMultipart(r, bucket, key)
+	uploadID, err := h.Controller.InitMultipart(r, bucket, key)
 	if err != nil {
 		s3util.WriteError(w, r, err)
 		return
@@ -175,7 +175,7 @@ func (h *multipartHandler) init(w http.ResponseWriter, r *http.Request) {
 	s3util.WriteXML(w, r, http.StatusOK, marshallable)
 }
 
-func (h *multipartHandler) complete(w http.ResponseWriter, r *http.Request) {
+func (h *MultipartHandler) Complete(w http.ResponseWriter, r *http.Request) {
 	if err := s3util.RequireContentLength(r); err != nil {
 		s3util.WriteError(w, r, err)
 		return
@@ -215,7 +215,7 @@ func (h *multipartHandler) complete(w http.ResponseWriter, r *http.Request) {
 	})
 
 	go func() {
-		result, err := h.controller.CompleteMultipart(r, bucket, key, uploadID, payload.Parts)
+		result, err := h.Controller.CompleteMultipart(r, bucket, key, uploadID, payload.Parts)
 		ch <- struct {
 			result *CompleteMultipartResult
 			err    error
@@ -274,7 +274,7 @@ func (h *multipartHandler) complete(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (h *multipartHandler) put(w http.ResponseWriter, r *http.Request) {
+func (h *MultipartHandler) Put(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	bucket := vars["bucket"]
 	key := vars["key"]
@@ -286,7 +286,7 @@ func (h *multipartHandler) put(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	etag, err := h.controller.UploadMultipartChunk(r, bucket, key, uploadID, partNumber, r.Body)
+	etag, err := h.Controller.UploadMultipartChunk(r, bucket, key, uploadID, partNumber, r.Body)
 	if err != nil {
 		s3util.WriteError(w, r, err)
 		return
@@ -299,14 +299,14 @@ func (h *multipartHandler) put(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-func (h *multipartHandler) del(w http.ResponseWriter, r *http.Request) {
+func (h *MultipartHandler) Del(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	bucket := vars["bucket"]
 	key := vars["key"]
 
 	uploadID := r.FormValue("uploadId")
 
-	if err := h.controller.AbortMultipart(r, bucket, key, uploadID); err != nil {
+	if err := h.Controller.AbortMultipart(r, bucket, key, uploadID); err != nil {
 		s3util.WriteError(w, r, err)
 		return
 	}

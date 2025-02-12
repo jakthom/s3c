@@ -141,7 +141,6 @@ func (h *ObjectHandler) Copy(w http.ResponseWriter, r *http.Request) {
 		LastModified: getResult.ModTime,
 		ETag:         getResult.ETag,
 	}
-
 	s3util.WriteXML(w, r, http.StatusOK, marshallable)
 }
 
