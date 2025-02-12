@@ -1,4 +1,4 @@
-package s3multipart
+package s3object
 
 import "time"
 
