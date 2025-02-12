@@ -14,6 +14,7 @@ import (
 	"github.com/jakthom/s3c/pkg/handler"
 	"github.com/jakthom/s3c/pkg/middleware"
 	fileorigin "github.com/jakthom/s3c/pkg/origin/file"
+	s3auth "github.com/jakthom/s3c/pkg/s3/auth"
 	s3bucket "github.com/jakthom/s3c/pkg/s3/bucket"
 	s3handler "github.com/jakthom/s3c/pkg/s3/handler"
 	s3middleware "github.com/jakthom/s3c/pkg/s3/middleware"
@@ -29,6 +30,7 @@ type S3c struct {
 	config         *config.Config
 	server         *http.Server
 	origin         *fileorigin.FileOrigin
+	authController *s3auth.BasicAuthController // TODO -> Add more customizable authorization
 	serviceHandler *s3service.ServiceHandler
 	bucketHandler  *s3bucket.BucketHandler
 	objectHandler  *s3object.ObjectHandler
@@ -42,16 +44,17 @@ func (s *S3c) configure() {
 		log.Fatal().Err(err).Msg("Failed to read configuration file")
 	}
 	s.config = &conf
-	util.Pprint(conf) // TODO -> fixme
+	util.Pprint(s.config)
 }
 
 func (s *S3c) initializeServer() {
 	router := mux.NewRouter()
 	// Generic Middleware
 	router.Use(middleware.RequestIdMiddleware)
-	router.Use(middleware.DebugMiddleware)
+	// router.Use(middleware.DebugMiddleware)
 	// S3 Middleware
 	router.Use(s3middleware.EtagMiddleware)
+	router.Use(s3middleware.AuthenticationMiddleware(s.authController))
 	// s3c metadata routes
 	router.Handle("/s3c/health", http.HandlerFunc(handler.HealthcheckHandler))
 	// S3 Service
@@ -76,6 +79,11 @@ func (s *S3c) Initialize() {
 	log.Info().Msg("Initializing s3c")
 	s.configure()
 	s.origin = fileorigin.NewOrigin("data")
+	s.authController = &s3auth.BasicAuthController{
+		Region:          "us-east-1", // TODO -> Fixme
+		AccessKeyId:     s.config.Auth.KeyID,
+		SecretAccessKey: s.config.Auth.Secret,
+	}
 	s.serviceHandler = &s3service.ServiceHandler{
 		Controller: s.origin.ServiceController,
 	}

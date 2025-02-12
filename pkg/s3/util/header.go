@@ -125,14 +125,14 @@ func NormQuery(v url.Values) string {
 }
 
 // hmacSHA1 computes HMAC with SHA1
-func hmacSHA1(key []byte, content string) []byte {
+func HmacSHA1(key []byte, content string) []byte {
 	mac := hmac.New(sha1.New, key)
 	mac.Write([]byte(content))
 	return mac.Sum(nil)
 }
 
 // hmacSHA256 computes HMAC with SHA256
-func hmacSHA256(key []byte, content string) []byte {
+func HmacSHA256(key []byte, content string) []byte {
 	mac := hmac.New(sha256.New, key)
 	mac.Write([]byte(content))
 	return mac.Sum(nil)
@@ -171,7 +171,7 @@ func FormatAWSTimestamp(t time.Time) string {
 // 1) as AWS' custom format (e.g. 20060102T150405Z)
 // 2) as RFC1123
 // 3) as RFC1123Z
-func parseAWSTimestamp(r *http.Request) (time.Time, error) {
+func ParseAWSTimestamp(r *http.Request) (time.Time, error) {
 	timestampStr := r.Header.Get("x-amz-date")
 	if timestampStr == "" {
 		timestampStr = r.Header.Get("date")

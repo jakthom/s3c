@@ -113,7 +113,7 @@ func (c *chunkedReader) readChunk() error {
 	)
 
 	// step 5: calculate & verify the signature
-	signature := hmacSHA256(c.signingKey, stringToSign)
+	signature := HmacSHA256(c.signingKey, stringToSign)
 	if chunkSignature != fmt.Sprintf("%x", signature) {
 		return InvalidChunk
 	}
